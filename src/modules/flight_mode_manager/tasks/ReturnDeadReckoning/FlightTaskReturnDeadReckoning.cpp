@@ -82,18 +82,14 @@ bool FlightTaskReturnDeadReckoning::update()
 		}
 	}
 
+	_updateState();
 	_updateSetpoints();
 
 	return true;
 }
 
-void FlightTaskReturnDeadReckoning::_updateSetpoints()
+void FlightTaskReturnDeadReckoning::_updateState()
 {
-	// Heading control
-	_heading_smoothing.update(_bearing_to_home, _deltatime);
-	_yaw_setpoint = _heading_smoothing.getSmoothedHeading();
-	_yawspeed_setpoint = _heading_smoothing.getSmoothedHeadingRate();
-
 	switch (_state) {
 		case State::INIT:
 			if (_isAboveReturnAltitude()) {
@@ -105,38 +101,61 @@ void FlightTaskReturnDeadReckoning::_updateSetpoints()
 				PX4_INFO("Ascending to return altitude %.2fm (MSL) with bearing %.2f deg",
 					 (double) _rtl_alt, (double) math::degrees(_bearing_to_home));
 			}
-			[[fallthrough]];
+			break;
 
 		case State::ASCENT:
 			if (_isAboveReturnAltitude()) {
 				_state = State::RETURN;
 				PX4_INFO("Returning to home position at %.2fm (MSL) with bearing %.2f deg",
 					 (double) _rtl_alt, (double) math::degrees(_bearing_to_home));
-				[[fallthrough]];
-			} else {
-				_slew_rate_acceleration_x.update(0.0f, _deltatime);
-				_slew_rate_acceleration_y.update(0.0f, _deltatime);
-				_slew_rate_velocity_z.update(-_param_mpc_z_v_auto_up.get(), _deltatime);
-
-				// Ascent until reaching the return altitude
-				_velocity_setpoint(2) = _slew_rate_velocity_z.getState();
-				break;
 			}
+			break;
 
 		case State::RETURN:
 			if (_isWithinHomePositionRadius()) {
 				_state = State::HOLD;
 				PX4_INFO("Holding altitude at %.2fm (MSL) over home position", (double) _rtl_alt);
-				[[fallthrough]];
-			} else {
-				_slew_rate_acceleration_x.update(_rtl_acc*cosf(_bearing_to_home), _deltatime);
-				_slew_rate_acceleration_y.update(_rtl_acc*sinf(_bearing_to_home), _deltatime);
-				_slew_rate_velocity_z.update(0.0f, _deltatime);
-
-				// Stay at the return altitude
-				_position_setpoint(2) = -(_rtl_alt - (float) _home_position(2));
-				break;
 			}
+			break;
+
+		case State::HOLD:
+			break;
+
+		default:
+			PX4_ERR("Unknown state");
+			return;
+	}
+}
+
+void FlightTaskReturnDeadReckoning::_updateSetpoints()
+{
+	switch (_state) {
+		case State::INIT:
+			_slew_rate_acceleration_x.update(0.0f, _deltatime);
+			_slew_rate_acceleration_y.update(0.0f, _deltatime);
+			_slew_rate_velocity_z.update(0.0f, _deltatime);
+
+			// Hold current altitude
+			_velocity_setpoint(2) = _slew_rate_velocity_z.getState();
+			break;
+
+		case State::ASCENT:
+			_slew_rate_acceleration_x.update(0.0f, _deltatime);
+			_slew_rate_acceleration_y.update(0.0f, _deltatime);
+			_slew_rate_velocity_z.update(-_param_mpc_z_v_auto_up.get(), _deltatime);
+
+			// Ascent until reaching the return altitude
+			_velocity_setpoint(2) = _slew_rate_velocity_z.getState();
+			break;
+
+		case State::RETURN:
+			_slew_rate_acceleration_x.update(_rtl_acc*cosf(_bearing_to_home), _deltatime);
+			_slew_rate_acceleration_y.update(_rtl_acc*sinf(_bearing_to_home), _deltatime);
+			_slew_rate_velocity_z.update(0.0f, _deltatime);
+
+			// Stay at the return altitude
+			_position_setpoint(2) = -(_rtl_alt - (float) _home_position(2));
+			break;
 
 		case State::HOLD:
 			_slew_rate_acceleration_x.update(0.0f, _deltatime);
@@ -153,6 +172,12 @@ void FlightTaskReturnDeadReckoning::_updateSetpoints()
 
 	};
 
+	// Heading setpoint
+	_heading_smoothing.update(_bearing_to_home, _deltatime);
+	_yaw_setpoint = _heading_smoothing.getSmoothedHeading();
+	_yawspeed_setpoint = _heading_smoothing.getSmoothedHeadingRate();
+
+	// Acceleration setpoint
 	_acceleration_setpoint.xy() = matrix::Vector2f(
 		_slew_rate_acceleration_x.getState(),
 		_slew_rate_acceleration_y.getState()

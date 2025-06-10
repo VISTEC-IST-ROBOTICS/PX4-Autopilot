@@ -56,7 +56,10 @@ public:
 private:
 	uORB::SubscriptionData<vehicle_global_position_s> _sub_vehicle_global_position{ORB_ID(vehicle_global_position)};
 
+	void _updateState();
+
 	void _updateSetpoints();
+
 
 	/**
 	 * Initialize home position
