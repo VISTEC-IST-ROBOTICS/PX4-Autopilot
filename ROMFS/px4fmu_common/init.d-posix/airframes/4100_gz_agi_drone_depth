@@ -10,7 +10,7 @@
 
 PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
 PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
-PX4_SIM_MODEL=${PX4_SIM_MODEL:=agi_drone}
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=agi_drone_depth}
 
 # param set-default SIM_GZ_EN 1
 
@@ -106,7 +106,7 @@ param set-default MPC_ACC_DOWN_MAX 5
 param set-default MPC_ACC_HOR_MAX 10
 param set-default MPC_MANTHR_MIN 0
 param set-default MPC_MAN_Y_MAX 120
-param set-default MPC_THR_HOVER 0.3
+param set-default MPC_THR_HOVER 0.55
 param set-default MPC_VEL_MANUAL 5
 param set-default MPC_XY_VEL_MAX 5
 param set-default MPC_XY_VEL_P_ACC 1.58
